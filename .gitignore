@@ -1,0 +1,16 @@
+/target/
+/app/build/
+fixtures/**/*.aux
+fixtures/**/*.log
+fixtures/**/*.pdf
+fixtures/**/*.synctex.gz
+fixtures/**/*.toc
+fixtures/**/*.out
+fixtures/**/*.idx
+fixtures/**/*.ind
+fixtures/**/*.ilg
+fixtures/**/*.bbl
+fixtures/**/*.blg
+fixtures/**/*.fls
+fixtures/**/*.fdb_latexmk
+.DS_Store
