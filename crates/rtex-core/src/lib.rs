@@ -16,6 +16,7 @@
 //! | Trash AUX Files                          | [`clean`]            |
 //! | Command Completion (`CommandCompletion.txt`) | [`completion`]   |
 //! | autocompletion.plist pairs, Esc `\end` | [`autopair`]         |
+//! | SaveRelated (`checkFileLinks:`)          | [`project`]          |
 
 pub mod autopair;
 pub mod build;
@@ -27,6 +28,7 @@ pub mod ffi;
 pub mod highlight;
 pub mod log;
 pub mod outline;
+pub mod project;
 pub mod root;
 pub mod synctex;
 

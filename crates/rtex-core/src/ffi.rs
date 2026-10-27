@@ -230,3 +230,10 @@ pub unsafe extern "C" fn rtex_end_environment(before_cursor: *const c_char, inde
         None => std::ptr::null_mut(),
     }
 }
+
+/// Files `\\input`/`\\include`d by a root's text (JSON array of absolute paths).
+#[no_mangle]
+pub unsafe extern "C" fn rtex_included_files(text: *const c_char, dir: *const c_char) -> *mut c_char {
+    let files = crate::project::included_files(from_c(text).unwrap_or(""), Path::new(from_c(dir).unwrap_or("/")));
+    json(&files)
+}
