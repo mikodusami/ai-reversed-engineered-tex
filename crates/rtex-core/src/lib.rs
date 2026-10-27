@@ -19,6 +19,7 @@ pub mod build;
 pub mod clean;
 pub mod directives;
 pub mod engine;
+pub mod ffi;
 pub mod highlight;
 pub mod log;
 pub mod outline;
