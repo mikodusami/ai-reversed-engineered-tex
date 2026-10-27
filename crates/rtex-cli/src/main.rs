@@ -124,6 +124,13 @@ enum Cmd {
     },
     /// List built-in engines and installed .engine scripts.
     Engines,
+    /// Show command completions for a word (TeXShop CommandCompletion.txt).
+    Complete {
+        word: String,
+        /// Use this completion file instead of the default search path.
+        #[arg(long)]
+        file: Option<PathBuf>,
+    },
 }
 
 fn main() -> ExitCode {
@@ -217,6 +224,19 @@ fn run(cli: Cli) -> Result<ExitCode, String> {
                 println!("removed {}", p.display());
             }
             println!("{} file(s) removed", removed.len());
+            Ok(ExitCode::SUCCESS)
+        }
+        Cmd::Complete { word, file } => {
+            let loaded = match file {
+                Some(f) => std::sync::Arc::new(rtex_core::completion::load(&f).map_err(|e| e.to_string())?),
+                None => rtex_core::completion::active(),
+            };
+            println!("source: {} ({} entries)", loaded.source, loaded.table.entries.len());
+            for (i, e) in loaded.table.candidates(&word).iter().enumerate() {
+                let x = rtex_core::completion::expand(&e.body, "");
+                let kind = if e.key.is_some() { "abbrev" } else { "complete" };
+                println!("{:>3}. [{kind}] {}", i + 1, x.text.replace('\n', "⏎"));
+            }
             Ok(ExitCode::SUCCESS)
         }
         Cmd::Engines => {

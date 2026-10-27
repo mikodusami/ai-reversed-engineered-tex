@@ -14,9 +14,11 @@
 //! | Tags/Labels menus (`doTag:`, `doLabel:`) | [`outline`]          |
 //! | `SyntaxHighlighting`                     | [`highlight`]        |
 //! | Trash AUX Files                          | [`clean`]            |
+//! | Command Completion (`CommandCompletion.txt`) | [`completion`]   |
 
 pub mod build;
 pub mod clean;
+pub mod completion;
 pub mod directives;
 pub mod engine;
 pub mod ffi;

@@ -189,3 +189,20 @@ pub unsafe extern "C" fn rtex_resolve_root(path: *const c_char) -> *mut c_char {
 pub extern "C" fn rtex_engines() -> *mut c_char {
     json(&crate::engine::list())
 }
+
+/// Command completion for `word` (the text left of the cursor, see
+/// `completion::word_before`). `indent` is the current line's leading
+/// whitespace. Returns `{"source": path, "candidates": [{text, sel_start, sel_len}]}`.
+#[no_mangle]
+pub unsafe extern "C" fn rtex_complete(word: *const c_char, indent: *const c_char) -> *mut c_char {
+    let word = from_c(word).unwrap_or("");
+    let indent = from_c(indent).unwrap_or("");
+    let loaded = crate::completion::active();
+    let candidates: Vec<_> = loaded
+        .table
+        .candidates(word)
+        .into_iter()
+        .map(|e| crate::completion::expand(&e.body, indent))
+        .collect();
+    json(&serde_json::json!({ "source": loaded.source, "candidates": candidates }))
+}
