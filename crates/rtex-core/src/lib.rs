@@ -10,6 +10,7 @@
 //! | Typeset menu + `Engines/*.engine`        | [`engine`]           |
 //! | `JobProcessing` (doTypeset/doBibtex/...) | [`build`]            |
 //! | `TSLogWindow`, texloganalyser            | [`log`]              |
+//! | `SyncTeX` (+ external `synctex` tool)    | [`synctex`]          |
 //! | Tags/Labels menus (`doTag:`, `doLabel:`) | [`outline`]          |
 //! | `SyntaxHighlighting`                     | [`highlight`]        |
 //! | Trash AUX Files                          | [`clean`]            |
@@ -22,6 +23,7 @@ pub mod highlight;
 pub mod log;
 pub mod outline;
 pub mod root;
+pub mod synctex;
 
 pub use build::{build, BuildOptions, BuildReport};
 pub use directives::Directives;
