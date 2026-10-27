@@ -36,6 +36,7 @@ TeXShop is one large `TSDocument` class split into categories, plus helper windo
 | `MyPDFKitView`, `TSPreviewWindow` | PDF preview (`_pdfRefreshTimer`, `refreshPDFWindow:`) | `RTPDFView` |
 | `NoodleLineNumberView` | line numbers | `RTLineNumberRuler` |
 | Tags / Labels menus (`doTag:`, `doLabel:`, `_tagTimer`) | outline popups, `%:` user marks | `rtex-core::outline`, Tags toolbar popup |
+| Command completion (`CommandCompletion.txt`, `CommandCompletionChar = ESCAPE`) | Esc completion, Marks menu | `rtex-core::completion`, `RTTextView complete:` |
 | `TSMacro*`, `TSMatrixPanelController`, `TSLaTeXPanelController`, `BibDeskCompletion` | macros, panels | not reimplemented |
 
 ## Magic comments (string table)
@@ -100,3 +101,27 @@ CLI on a grid of points and on every source line.
 | basic (3 pages, index, hyperref) | 1200 / 1200 | 30 / 30 | 29 / 30 |
 | multi (`\input` + `\include`) | 800 / 800 | 14 / 14 | 14 / 14 |
 | biblio (BibTeX) | 400 / 400 | 6 / 6 | 6 / 6 |
+
+## Command completion
+
+Source: `Resources/TeXShop/CommandCompletion/` (the data file plus the
+"Command Completion For TeXShop" guide). The rules are covered by tests in `completion.rs`:
+
+* `key:=expansion` lines are abbreviations (exact match); other lines are
+  completions (prefix match). The word starts after the last of
+  `space tab newline . , ; : { } ( ) \`; a leading `\` or `{` is part of it.
+* The file is searched from the bottom. The guide's examples only hold that way:
+  `\b` → `\begin{` (line 451, after `\boxed{` on line 363), and `{eq` →
+  equation, eqnarray, eqnarray* (lines 126, 125, 124).
+* `#INS#` once = cursor, twice = selection; `#RET#` = newline + current
+  indentation; `#T#` = tab; `#INC#` (XML file) is treated as `#INS#`.
+* Repeated Esc cycles through the candidates and then back to the typed word.
+* Marks `•` / `•‹comment›`: Next/Previous Mark ⌃⌘F / ⌃⌘G, with ⌥ to delete
+  the Mark, and Insert Mark ⌘8.
+
+Checked in the running app: `benu`⎋ expands to an indented enumerate
+environment with the Mark selected, and `\begin{eq`⎋⎋⎋⎋ cycles in the
+order above and back to `\begin{eq`.
+
+On macOS 26, Esc reaches NSTextView as `cancelOperation:`, which is not
+forwarded to `complete:`. `RTTextView` routes it explicitly.
