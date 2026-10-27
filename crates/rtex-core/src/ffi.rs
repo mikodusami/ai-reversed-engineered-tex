@@ -206,3 +206,27 @@ pub unsafe extern "C" fn rtex_complete(word: *const c_char, indent: *const c_cha
         .collect();
     json(&serde_json::json!({ "source": loaded.source, "candidates": candidates }))
 }
+
+/// Expand a TeXShop autocompletion template (`#SEL#`, `#INS#`) with the
+/// selected text. Returns `{"text": ..., "caret": utf16_offset}`.
+#[no_mangle]
+pub unsafe extern "C" fn rtex_autopair_expand(template: *const c_char, selected: *const c_char) -> *mut c_char {
+    json(&crate::autopair::expand(from_c(template).unwrap_or(""), from_c(selected).unwrap_or("")))
+}
+
+/// RTeX's default pairs as a JSON object `{key: template}`.
+#[no_mangle]
+pub extern "C" fn rtex_autopair_defaults() -> *mut c_char {
+    let m: serde_json::Map<String, serde_json::Value> =
+        crate::autopair::DEFAULT_PAIRS.iter().map(|(k, v)| (k.to_string(), serde_json::Value::from(*v))).collect();
+    json(&m)
+}
+
+/// Text to insert for Esc after `\begin{name}` (NULL when not applicable).
+#[no_mangle]
+pub unsafe extern "C" fn rtex_end_environment(before_cursor: *const c_char, indent: *const c_char) -> *mut c_char {
+    match crate::autopair::end_environment(from_c(before_cursor).unwrap_or(""), from_c(indent).unwrap_or("")) {
+        Some(t) => to_c(t),
+        None => std::ptr::null_mut(),
+    }
+}

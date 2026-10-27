@@ -15,7 +15,9 @@
 //! | `SyntaxHighlighting`                     | [`highlight`]        |
 //! | Trash AUX Files                          | [`clean`]            |
 //! | Command Completion (`CommandCompletion.txt`) | [`completion`]   |
+//! | autocompletion.plist pairs, Esc `\end` | [`autopair`]         |
 
+pub mod autopair;
 pub mod build;
 pub mod clean;
 pub mod completion;
