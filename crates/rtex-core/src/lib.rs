@@ -5,3 +5,8 @@
 //!
 //! | TeXShop                                  | rtex-core            |
 //! |------------------------------------------|----------------------|
+//! | `% !TEX` parsing in TSDocument           | [`directives`]       |
+
+pub mod directives;
+
+pub use directives::Directives;
