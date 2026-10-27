@@ -157,3 +157,22 @@ RTeX (`rtex-core::autopair` + `RTTextView`):
 
 Tests: `cargo test` (template rules) and `make -C app test`, which drives the
 real `RTTextView` headlessly through 16 editing scenarios.
+
+## Saving (decompiled with REA + Ghidra)
+
+| TeXShop | Recovered behavior | RTeX |
+|---|---|---|
+| `+autosavesInPlace` (0x100084328) | returns a flag set at launch from `AutoSaveEnabled` (default YES; `-[TSAppDelegate applicationWillFinishLaunching:]` 0x100015cf8) | same, `RTAutoSave` |
+| `-dataOfType:error:` (0x100088dac) | unless ⌥ is held (`GetCurrentKeyModifiers` bit 11), scans the first ~20 lines for `%!TEX encoding =` / `% !TEX encoding =` (and `%&encoding=` with `UseOldHeadingCommands`) and makes it the save encoding; optional modified-NFC (`AutomaticUTF8MACtoUTF8Conversion`); `dataUsingEncoding:allowLossyConversion:YES` | same directive and ⌥ rule; **no lossy conversion**: without a directive, switch to UTF-8; with one, refuse with an explanation |
+| `-keepBackupFile` (0x10008af28) | `KeepBackup` (default NO) | same, `RTKeepBackup` |
+| `-fileNameExtensionForType:saveOperation:` (0x10009fbd8) | the current file's extension | same (`tex` for new files) |
+| `-prepareSavePanel:` (0x1000883f4) | `EncodingMenuInSaveDialog` (default NO) adds an encoding popup; `saveToURL:…` applies it | same, `RTEncodingInSavePanel` |
+| `-writeToURL:ofType:error:` (0x10008a5a4) | `cancelWatchFile`, write, `breakUndoCoalescing`, `watchFile:` | watcher paused for the whole save (safe-save renames too), then undo coalescing broken |
+| `-watchFile:` (0x100089cac), handler 0x100089e24 | GCD vnode source (DELETE\|WRITE\|RENAME), only if `AutoSaveEnabled` and `WatchServer`. Handler: unsaved changes → stop watching; WRITE → `revertToContentsOfURL:`; DELETE → `sleep(1)`, readable → revert else **close**; RENAME → **close** | same, except the window is never closed (text kept, marked unsaved), the 1 s re-check doesn't block the main thread, and the view keeps its selection and scroll position on reload |
+| `-checkFileLinks:` (0x1000735ac) | `SaveRelated` (default NO): saves open, edited documents named by the root's `\input` lines before typesetting | on by default; also follows `\include`/`\subfile` and saves the root |
+| `-saveFinished:didSave:contextInfo:` | typeset continues after the save: rescans `% !TEX` lines, optional `WarnForShellEscape` alert | typeset saves first, as before |
+
+Tests: `make -C app test` → `document_test` (14 checks on real files:
+encoding line, refusal instead of loss, UTF-8 upgrade, extension, reload
+on write and on save-by-replace, own saves ignored, edits kept, deleted
+file kept, save-related).
