@@ -9,10 +9,12 @@
 //! | `RootFile`, `checkRootFile:forTask:`     | [`root`]             |
 //! | Typeset menu + `Engines/*.engine`        | [`engine`]           |
 //! | `TSLogWindow`, texloganalyser            | [`log`]              |
+//! | Tags/Labels menus (`doTag:`, `doLabel:`) | [`outline`]          |
 
 pub mod directives;
 pub mod engine;
 pub mod log;
+pub mod outline;
 pub mod root;
 
 pub use directives::Directives;
