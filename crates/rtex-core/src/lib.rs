@@ -7,8 +7,10 @@
 //! |------------------------------------------|----------------------|
 //! | `% !TEX` parsing in TSDocument           | [`directives`]       |
 //! | `RootFile`, `checkRootFile:forTask:`     | [`root`]             |
+//! | `TSLogWindow`, texloganalyser            | [`log`]              |
 
 pub mod directives;
+pub mod log;
 pub mod root;
 
 pub use directives::Directives;
