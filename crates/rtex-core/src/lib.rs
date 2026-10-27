@@ -10,9 +10,11 @@
 //! | Typeset menu + `Engines/*.engine`        | [`engine`]           |
 //! | `TSLogWindow`, texloganalyser            | [`log`]              |
 //! | Tags/Labels menus (`doTag:`, `doLabel:`) | [`outline`]          |
+//! | `SyntaxHighlighting`                     | [`highlight`]        |
 
 pub mod directives;
 pub mod engine;
+pub mod highlight;
 pub mod log;
 pub mod outline;
 pub mod root;
