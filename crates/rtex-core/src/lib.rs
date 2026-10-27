@@ -6,7 +6,9 @@
 //! | TeXShop                                  | rtex-core            |
 //! |------------------------------------------|----------------------|
 //! | `% !TEX` parsing in TSDocument           | [`directives`]       |
+//! | `RootFile`, `checkRootFile:forTask:`     | [`root`]             |
 
 pub mod directives;
+pub mod root;
 
 pub use directives::Directives;
