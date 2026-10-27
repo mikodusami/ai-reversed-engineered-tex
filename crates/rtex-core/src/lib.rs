@@ -8,10 +8,14 @@
 //! | `% !TEX` parsing in TSDocument           | [`directives`]       |
 //! | `RootFile`, `checkRootFile:forTask:`     | [`root`]             |
 //! | Typeset menu + `Engines/*.engine`        | [`engine`]           |
+//! | `JobProcessing` (doTypeset/doBibtex/...) | [`build`]            |
 //! | `TSLogWindow`, texloganalyser            | [`log`]              |
 //! | Tags/Labels menus (`doTag:`, `doLabel:`) | [`outline`]          |
 //! | `SyntaxHighlighting`                     | [`highlight`]        |
+//! | Trash AUX Files                          | [`clean`]            |
 
+pub mod build;
+pub mod clean;
 pub mod directives;
 pub mod engine;
 pub mod highlight;
@@ -19,4 +23,5 @@ pub mod log;
 pub mod outline;
 pub mod root;
 
+pub use build::{build, BuildOptions, BuildReport};
 pub use directives::Directives;
