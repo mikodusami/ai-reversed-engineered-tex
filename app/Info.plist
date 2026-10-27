@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>RTeX</string>
+	<key>CFBundleDisplayName</key>
+	<string>RTeX</string>
+	<key>CFBundleIdentifier</key>
+	<string>dev.rtex.RTeX</string>
+	<key>CFBundleExecutable</key>
+	<string>RTeX</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>GPL-2.0-or-later. TeX engines from TeX Live.</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>LaTeX Document</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>NSDocumentClass</key>
+			<string>RTDocument</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>tex</string>
+				<string>ltx</string>
+				<string>latex</string>
+				<string>sty</string>
+				<string>cls</string>
+				<string>dtx</string>
+				<string>ins</string>
+				<string>bib</string>
+				<string>bbl</string>
+				<string>ind</string>
+				<string>toc</string>
+				<string>log</string>
+				<string>txt</string>
+			</array>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.plain-text</string>
+				<string>org.tug.tex</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
