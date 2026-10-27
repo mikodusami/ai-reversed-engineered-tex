@@ -52,6 +52,9 @@ struct BuildArgs {
     /// Open the PDF when done.
     #[arg(long)]
     open: bool,
+    /// Build files afterwards: keep, hide (move to the cache, restored next run) or delete.
+    #[arg(long, default_value = "keep", value_parser = ["keep", "hide", "delete"])]
+    after: String,
 }
 
 impl BuildArgs {
@@ -67,6 +70,7 @@ impl BuildArgs {
             index: !self.no_index,
             bin_dir: self.bin_dir.clone(),
             extra_args: Vec::new(),
+            after_build: rtex_core::clean::AfterBuild::parse(&self.after).unwrap_or_default(),
         }
     }
 }

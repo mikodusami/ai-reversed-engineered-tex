@@ -237,3 +237,11 @@ pub unsafe extern "C" fn rtex_included_files(text: *const c_char, dir: *const c_
     let files = crate::project::included_files(from_c(text).unwrap_or(""), Path::new(from_c(dir).unwrap_or("/")));
     json(&files)
 }
+
+/// Build files of the document's root currently in its folder (JSON array).
+#[no_mangle]
+pub unsafe extern "C" fn rtex_build_files(path: *const c_char) -> *mut c_char {
+    let Some(p) = from_c(path) else { return err("NULL argument") };
+    let root = crate::root::resolve_root(Path::new(p)).map(|(r, _)| r).unwrap_or_else(|_| p.into());
+    json(&crate::clean::build_files(&root))
+}

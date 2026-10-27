@@ -41,6 +41,8 @@ pub struct BuildOptions {
     pub index: bool,
     pub bin_dir: PathBuf,
     pub extra_args: Vec<String>,
+    /// What to do with build files afterwards (keep / hide / delete).
+    pub after_build: crate::clean::AfterBuild,
 }
 
 impl Default for BuildOptions {
@@ -56,6 +58,7 @@ impl Default for BuildOptions {
             index: true,
             bin_dir: PathBuf::from(DEFAULT_BIN_DIR),
             extra_args: Vec::new(),
+            after_build: crate::clean::AfterBuild::Keep,
         }
     }
 }
@@ -83,6 +86,10 @@ pub struct BuildReport {
     pub log: Option<LogSummary>,
     pub error: Option<String>,
     pub total_millis: u64,
+    /// Build files hidden or deleted after the typeset.
+    pub cleaned_up: usize,
+    #[serde(skip)]
+    resolved: bool,
 }
 
 /// Output sink for console text (TeXShop's console window).
@@ -104,9 +111,23 @@ pub fn build(file: &Path, opts: &BuildOptions, sink: Sink, cancel: &AtomicBool) 
         log: None,
         error: None,
         total_millis: 0,
+        cleaned_up: 0,
+        resolved: false,
     };
     if let Err(e) = build_inner(file, opts, sink, cancel, &mut report) {
         report.error = Some(e);
+    }
+    // Leave only sources and the PDF in the folder, even after errors or Stop.
+    if report.resolved && opts.after_build != crate::clean::AfterBuild::Keep {
+        match crate::clean::after_build(&report.root, opts.after_build) {
+            Ok(moved) if !moved.is_empty() => {
+                let verb = if opts.after_build == crate::clean::AfterBuild::Hide { "hid" } else { "deleted" };
+                sink(&format!("\nrtex: {verb} {} build file(s); the folder keeps the sources and the PDF\n", moved.len()));
+                report.cleaned_up = moved.len();
+            }
+            Ok(_) => {}
+            Err(e) => sink(&format!("\nrtex: could not clean up build files: {e}\n")),
+        }
     }
     report.cancelled = cancel.load(Ordering::Relaxed);
     report.total_millis = t0.elapsed().as_millis() as u64;
@@ -122,6 +143,15 @@ fn build_inner(
 ) -> Result<(), String> {
     let (root, directives) = resolve_root(file).map_err(|e| e.to_string())?;
     report.root = root.clone();
+    report.resolved = true;
+    if opts.after_build != crate::clean::AfterBuild::Keep {
+        // Bring hidden build files back so this typeset stays incremental.
+        if let Ok(n) = crate::clean::restore(&root) {
+            if n > 0 {
+                sink(&format!("rtex: restored {n} hidden build file(s)\n"));
+            }
+        }
+    }
     let dir = root.parent().ok_or("root has no directory")?.to_path_buf();
     let name = root.file_name().ok_or("bad root name")?.to_string_lossy().to_string();
     let stem = root.file_stem().unwrap().to_string_lossy().to_string();
@@ -756,6 +786,15 @@ mod tests {
         let t = "% \\begin{document}\n\\usepackage{x}\n\\begin{document}\nhi";
         assert_eq!(&t[find_begin_document(t).unwrap()..][..16], "\\begin{document}");
         assert!(find_begin_document(t).unwrap() > 20);
+    }
+
+    #[test]
+    fn options_json_from_app() {
+        let o: BuildOptions = serde_json::from_str(r#"{"fast_preamble":true,"after_build":"hide"}"#).unwrap();
+        assert_eq!(o.after_build, crate::clean::AfterBuild::Hide);
+        assert!(o.fast_preamble && o.max_passes == 5);
+        let o: BuildOptions = serde_json::from_str(r#"{"after_build":"delete"}"#).unwrap();
+        assert_eq!(o.after_build, crate::clean::AfterBuild::Delete);
     }
 
     #[test]

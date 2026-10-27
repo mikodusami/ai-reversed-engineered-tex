@@ -1018,6 +1018,18 @@ pub fn locate(path: &Path) -> Option<PathBuf> {
             return Some(cand);
         }
     }
+    // Build files may have been hidden in the cache after typesetting
+    // (the cache is keyed by the root's absolute path).
+    let name = stem.file_name()?.to_string_lossy().to_string();
+    let abs = crate::root::absolutize(path).ok()?;
+    for root_ext in ["tex", "ltx", "latex"] {
+        let root = abs.with_extension(root_ext);
+        for ext in ["synctex.gz", "synctex"] {
+            if let Some(p) = crate::clean::hidden(&root, &format!("{name}.{ext}")) {
+                return Some(p);
+            }
+        }
+    }
     None
 }
 
