@@ -7,9 +7,11 @@
 //! |------------------------------------------|----------------------|
 //! | `% !TEX` parsing in TSDocument           | [`directives`]       |
 //! | `RootFile`, `checkRootFile:forTask:`     | [`root`]             |
+//! | Typeset menu + `Engines/*.engine`        | [`engine`]           |
 //! | `TSLogWindow`, texloganalyser            | [`log`]              |
 
 pub mod directives;
+pub mod engine;
 pub mod log;
 pub mod root;
 
