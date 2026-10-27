@@ -12,6 +12,10 @@ and structure to reimplement it, not copied code.
 | Binary | universal Mach-O (x86_64 + arm64); arm64 slice sha256 `3895524f0d653ff5a120c9efca64fe9dd1064151d5b11e4314345259a658cc5d` |
 | Linked | Cocoa, Carbon, Quartz (PDFKit), WebKit, AVFoundation/AVKit (weak), Sparkle 1.24, OgreKit (regex find) |
 
+Since Ghidra 12.1.4 was installed (native decompiler built locally), REA
+also decompiles the arm64 slice (`lipo -thin arm64` →
+`~/tools/re-targets/TeXShop-arm64`, sha256 `34a05914…2d86`).
+
 REA tools used: `open_binary`, `inspect_macho` (load commands and dependencies),
 `inspect_plist` (`FactoryDefaults.plist`), `decode_interface_builder` (nib
 archives), `observe_native_ui` / `capture_native_ui_scenario` (to drive and
@@ -125,3 +129,31 @@ order above and back to `\begin{eq`.
 
 On macOS 26, Esc reaches NSTextView as `cancelOperation:`, which is not
 forwarded to `complete:`. `RTTextView` routes it explicitly.
+
+## Auto-pairing (decompiled with REA + Ghidra)
+
+| TeXShop function | Recovered behavior |
+|---|---|
+| `-[TSTextView insertText:]` (0x1000228a4) | A single typed character, with auto-completion on, is looked up in `g_autocompletionDictionary` (loaded from `Keyboard/autocompletion.plist`). An ASCII key right after `\` skips the lookup. A hit goes to `insertSpecialNonStandard:undoKey:` with the undo name "Autocompletion". |
+| `-[TSDocument insertSpecialNonStandard:undoKey:]` (0x10009a100) | `#SEL#` → the selected text; the *last* `#INS#` (`NSBackwardsSearch`) is removed and becomes the caret. |
+| `-[TSTextView keyDown:]` (0x10002494c), first block | `EditorCanAddBrackets` on and selection length ≥ 3 (`cmp x1,#3; b.lo`): `[ { ( $` wrap the selection as `[…] {…} (…) $…$`. Characters read from the CFString table at 0x100113b40/ac0, 0x1001138c0/900, 0x100113de0/e00, 0x100113400. |
+| `-[TSTextView keyDown:]`, `latexSpecial` branch | Esc with `}` before the caret and `\begin{` before the group inserts `"\n%@%Cend%@\n"` (indent, `\`, `{name}`) and keeps the caret after `\begin{name}`. Boundary set: `"\n \t.,:;{}()%C"` (with `\`). |
+
+The shipped table pairs `^` → `^{#SEL##INS#}`, `_` → `_{#SEL##INS#}` and
+`"` → ` ``#SEL##INS#'' `, and maps about 40 Unicode characters to LaTeX
+(`≤` → `\leq`, `ä` → `\"a`, …). It has no `{ [ (` entries.
+
+RTeX (`rtex-core::autopair` + `RTTextView`):
+* uses the same table (RTeX's own file, then TeXShop's user copy, then the
+  bundled one) with identical `#SEL#`/`#INS#` and backslash rules;
+* adds `{ [ (` pairs for keys the table does not define;
+* adds typing over an auto-inserted closer, and Backspace in an empty pair
+  removing both (a closer is "auto-inserted" while it carries a
+  layout-manager temporary attribute, which moves with edits);
+* wraps a selection of any length (TeXShop requires 3+ characters and
+  `EditorCanAddBrackets`); `$` wraps only when there is a selection;
+* inserts `\end{name}` on Esc as TeXShop does, and ignores a second Esc
+  when the environment is already closed.
+
+Tests: `cargo test` (template rules) and `make -C app test`, which drives the
+real `RTTextView` headlessly through 16 editing scenarios.
