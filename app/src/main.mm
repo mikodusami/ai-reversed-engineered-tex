@@ -1,6 +1,7 @@
 // RTeX application entry point and menus (built in code; no nib).
 #import <Cocoa/Cocoa.h>
 #import "RTDocument.h"
+#import "RTJobs.h"
 
 @interface RTAppDelegate : NSObject <NSApplicationDelegate, NSMenuItemValidation>
 @end
@@ -15,6 +16,7 @@
         RTDefaultsShellEscape : @NO,
         RTDefaultsAutoPair : @YES,
         RTDefaultsAfterBuild : @"keep",
+        RTDefaultsJobsAnalysis : @NO,
         // Saving, as TeXShop's FactoryDefaults: AutoSaveEnabled YES, KeepBackup NO,
         // WatchServer YES, EncodingMenuInSaveDialog NO, AutomaticUTF8MACtoUTF8Conversion NO.
         // SaveRelated is NO in TeXShop; RTeX turns it on (stale chapters give stale PDFs).
@@ -29,7 +31,11 @@
 }
 
 - (BOOL)applicationShouldOpenUntitledFile:(NSApplication *)sender {
-    return YES;
+    return ![NSUserDefaults.standardUserDefaults boolForKey:@"RTShowJobsOnLaunch"];
+}
+
+- (void)applicationDidFinishLaunching:(NSNotification *)n {
+    if ([NSUserDefaults.standardUserDefaults boolForKey:@"RTShowJobsOnLaunch"]) [RTJobsController.shared showJobs:nil];
 }
 
 static NSMenuItem *Item(NSString *title, SEL action, NSString *key, NSEventModifierFlags mods = NSEventModifierFlagCommand) {
@@ -162,6 +168,16 @@ static NSMenuItem *Submenu(NSMenu *menu) {
     t = Item(@"Typeset on Save", @selector(toggleDefault:), nil); t.representedObject = RTDefaultsTypesetOnSave; [typeset addItem:t];
     t = Item(@"Allow Shell Escape", @selector(toggleDefault:), nil); t.representedObject = RTDefaultsShellEscape; [typeset addItem:t];
     [main addItem:Submenu(typeset)];
+
+    NSMenu *jobs = [[NSMenu alloc] initWithTitle:@"Jobs"];
+    RTJobsController *jc = RTJobsController.shared;
+    NSMenuItem *ji;
+    ji = Item(@"Show Jobs", @selector(showJobs:), @"j", NSEventModifierFlagCommand | NSEventModifierFlagShift); ji.target = jc; [jobs addItem:ji];
+    ji = Item(@"New Job…", @selector(newJob:), @"n", NSEventModifierFlagCommand | NSEventModifierFlagShift); ji.target = jc; [jobs addItem:ji];
+    [jobs addItem:NSMenuItem.separatorItem];
+    ji = Item(@"Write Role Analysis (slower)", @selector(toggleDefault:), nil); ji.representedObject = RTDefaultsJobsAnalysis; [jobs addItem:ji];
+    ji = Item(@"Choose Job Folder…", @selector(chooseJobsFolder:), nil); ji.target = jc; [jobs addItem:ji];
+    [main addItem:Submenu(jobs)];
 
     NSMenu *view = [[NSMenu alloc] initWithTitle:@"View"];
     [view addItem:Item(@"Zoom In", @selector(zoomIn:), @"+")];

@@ -75,6 +75,22 @@ char *rtex_end_environment(const char *before_cursor, const char *indent);
 // absolute paths (relative names resolve against `dir`).
 char *rtex_included_files(const char *text, const char *dir);
 
+// ---- Jobs (crates/rtex-jobs/src/ffi.rs). `root` may be NULL/"" for the default
+// folder. Slow calls (add_url, tailor) block: call them off the main thread.
+typedef void (*rtex_progress_fn)(void *ctx, const char *event_json);
+char *rtex_jobs_default_root(void);
+char *rtex_jobs_list(const char *root);                     // {root, stages, jobs:[Job]}
+char *rtex_jobs_add_url(const char *root, const char *url);  // Job
+char *rtex_jobs_add_html(const char *root, const char *html, const char *url);  // Job
+char *rtex_jobs_add_text(const char *root, const char *text, const char *fields_json);  // Job
+// options_json: {"analysis": false}. progress gets JSON events as they stream:
+// {"kind":"status","text":…} and {"kind":"edit","index":n,"edit":{op,section,entry,original,replacement,rationale}}.
+char *rtex_jobs_tailor(const char *root, const char *slug, const char *options_json, bool move_when_ready,
+                       rtex_progress_fn progress, void *ctx);  // Outcome + {ready, job}
+char *rtex_jobs_move(const char *root, const char *slug, const char *stage);  // Job
+char *rtex_jobs_context(const char *root, const char *slug);  // {files:[{path,bytes,default,note}], selected}
+char *rtex_jobs_set_context(const char *root, const char *slug, const char *paths_json);
+
 rtex_span *rtex_highlight(const uint8_t *text, size_t len, size_t *count);
 void rtex_spans_free(rtex_span *spans, size_t count);
 

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/rtex-core", "crates/rtex-cli"]
+members = ["crates/rtex-core", "crates/rtex-jobs", "crates/rtex-cli"]
 resolver = "2"
 
 [workspace.package]

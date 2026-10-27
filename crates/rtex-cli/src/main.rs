@@ -128,6 +128,14 @@ enum Cmd {
     },
     /// List built-in engines and installed .engine scripts.
     Engines,
+    /// Job postings: capture, tailor the resume, list.
+    Job {
+        /// Job-search folder (default: $RTEX_JOBS_ROOT or ~/Projects/career-job-search).
+        #[arg(long, global = true)]
+        root: Option<PathBuf>,
+        #[command(subcommand)]
+        cmd: JobCmd,
+    },
     /// Show command completions for a word (TeXShop CommandCompletion.txt).
     Complete {
         word: String,
@@ -135,6 +143,145 @@ enum Cmd {
         #[arg(long)]
         file: Option<PathBuf>,
     },
+}
+
+#[derive(Subcommand)]
+enum JobCmd {
+    /// List jobs by stage.
+    List,
+    /// Capture a posting into jobs/inbox: from a URL, or pasted text (--text FILE, or - for stdin).
+    Add {
+        url: Option<String>,
+        #[arg(long)]
+        text: Option<PathBuf>,
+        #[arg(long, default_value = "")]
+        title: String,
+        #[arg(long, default_value = "")]
+        company: String,
+        #[arg(long, default_value = "")]
+        location: String,
+    },
+    /// Tailor the resume for a job with Claude, compile it and check it.
+    Tailor {
+        slug: String,
+        /// Leave the job in its stage (by default a ready resume moves it to apply-now).
+        #[arg(long)]
+        no_move: bool,
+        /// Also write the role analysis (slower; off by default).
+        #[arg(long)]
+        analysis: bool,
+    },
+    /// Show the context files sent to Claude for a job.
+    Context { slug: String },
+    /// Check a compiled resume against the 116-character line rule.
+    Lines {
+        pdf: PathBuf,
+        #[arg(long)]
+        base: Option<PathBuf>,
+    },
+}
+
+fn job_cmd(root: Option<PathBuf>, cmd: JobCmd) -> Result<ExitCode, String> {
+    use rtex_jobs::{capture, context, linecheck, tailor, Workspace};
+    if let JobCmd::Lines { pdf, base } = &cmd {
+        let v = linecheck::check(pdf, base.as_deref())?;
+        for x in &v {
+            println!("{} {}", if x.in_base { "base" } else { "FAIL" }, x.describe());
+        }
+        let fails = v.iter().filter(|x| !x.in_base).count();
+        println!("line check: {}", if fails == 0 { "ok".to_string() } else { format!("{fails} to fix") });
+        return Ok(if fails == 0 { ExitCode::SUCCESS } else { ExitCode::from(1) });
+    }
+    let ws = Workspace::open(&root.unwrap_or_else(Workspace::default_root)).map_err(|e| e.to_string())?;
+    match cmd {
+        JobCmd::List => {
+            for stage in rtex_jobs::workspace::STAGES {
+                let jobs: Vec<_> = ws.jobs().into_iter().filter(|j| j.stage == *stage).collect();
+                if jobs.is_empty() {
+                    continue;
+                }
+                println!("{stage} ({})", jobs.len());
+                for j in jobs {
+                    let pdf = if j.resume_pdf.is_some() { "  [pdf]" } else { "" };
+                    println!("  {}  {} — {}{pdf}", j.slug, j.company, j.title);
+                }
+            }
+        }
+        JobCmd::Add { url, text, title, company, location } => {
+            let posting = match (&text, &url) {
+                (Some(path), _) => {
+                    let body = if path.as_os_str() == "-" {
+                        let mut s = String::new();
+                        std::io::Read::read_to_string(&mut std::io::stdin(), &mut s).map_err(|e| e.to_string())?;
+                        s
+                    } else {
+                        std::fs::read_to_string(path).map_err(|e| e.to_string())?
+                    };
+                    capture::from_text(&body, &title, &company, &location, url.as_deref().unwrap_or(""))
+                }
+                (None, Some(u)) => {
+                    let mut p = capture::capture_url(u)?;
+                    if !title.is_empty() { p.title = title; }
+                    if !company.is_empty() { p.company = company; }
+                    if !location.is_empty() { p.location = location; }
+                    p
+                }
+                (None, None) => return Err("give a URL or --text FILE".into()),
+            };
+            let job = ws.create(&posting).map_err(|e| e.to_string())?;
+            println!("added {} ({} — {}, {} words)", job.slug, job.company, job.title, posting.body.split_whitespace().count());
+        }
+        JobCmd::Context { slug } => {
+            let job = ws.find(&slug).ok_or(format!("no job {slug}"))?;
+            let sel = context::selected(&ws, &job);
+            for f in context::available(&ws) {
+                let mark = if sel.contains(&f.path) { "x" } else { " " };
+                println!("[{mark}] {:>7}  {}  ({})", f.bytes, f.path, f.note);
+            }
+        }
+        JobCmd::Tailor { slug, no_move, analysis } => {
+            let job = ws.find(&slug).ok_or(format!("no job {slug}"))?;
+            let mut progress = |ev: &serde_json::Value| match ev["kind"].as_str() {
+                Some("edit") => {
+                    let e = &ev["edit"];
+                    eprintln!(
+                        "  + edit {} [{}] {}: {}",
+                        ev["index"].as_u64().unwrap_or(0) + 1,
+                        e["op"].as_str().unwrap_or("replace"),
+                        e["entry"].as_str().unwrap_or(""),
+                        e["rationale"].as_str().unwrap_or("")
+                    );
+                }
+                _ => eprintln!("· {}", ev["text"].as_str().unwrap_or("")),
+            };
+            let topts = tailor::TailorOptions { analysis };
+            let out = tailor::tailor(&ws, &job, &topts, &mut progress)?;
+            println!("decision: {}{}", out.decision, if out.stop_reason.is_empty() { String::new() } else { format!(" ({})", out.stop_reason) });
+            println!("edits: {} ({} not applied)", out.edits.len(), out.unapplied.len());
+            println!("job: {} — {}", out.company, out.position);
+            if let Some(pdf) = out.attachment.as_ref().or(out.pdf.as_ref()) {
+                println!("resume: {} ({} page(s))", pdf.display(), out.pages.unwrap_or(0));
+            }
+            let fails = out.violations.iter().filter(|v| !v.in_base).count();
+            println!("line check: {}", if fails == 0 { "ok".to_string() } else { format!("{fails} to fix") });
+            for c in &out.check_claims {
+                println!("check claim: {c}");
+            }
+            let calls: Vec<String> = out
+                .calls
+                .iter()
+                .map(|c| format!("{} {:.0}s, {} tok out, {}K of {}K in cached", c.purpose, c.reply.seconds, c.reply.output_tokens, c.reply.cached_input_tokens / 1000, c.reply.input_tokens / 1000))
+                .collect();
+            println!("{:.0} s total ({}), ${:.2} list price, model {}", out.seconds, calls.join(", "), out.cost_usd, out.model);
+
+            if out.ready() && !no_move && job.stage == "inbox" {
+                let moved = ws.move_job(&job, "apply-now").map_err(|e| e.to_string())?;
+                println!("moved to {}", moved.dir.display());
+            }
+        }
+        JobCmd::Lines { .. } => unreachable!(),
+    }
+    Ok(ExitCode::SUCCESS)
 }
 
 fn main() -> ExitCode {
@@ -243,6 +390,7 @@ fn run(cli: Cli) -> Result<ExitCode, String> {
             }
             Ok(ExitCode::SUCCESS)
         }
+        Cmd::Job { root, cmd } => job_cmd(root, cmd),
         Cmd::Engines => {
             for e in rtex_core::engine::list() {
                 match e.path {

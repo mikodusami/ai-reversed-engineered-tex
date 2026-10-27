@@ -10,6 +10,7 @@ them: build orchestration, log analysis, SyncTeX, outline and highlighting.
 
 ```
 crates/rtex-core   Rust library (also a C static library for the app)
+crates/rtex-jobs   job postings → tailored, compiled, checked resumes (uses Claude Code)
 crates/rtex-cli    `rtex` command-line tool
 app/               RTeX.app (Objective-C++), links librtex_core.a
 docs/RE-NOTES.md   what was recovered from TeXShop and how it maps here
@@ -51,6 +52,67 @@ rtex complete '{eq'             # command completions, best first
 `% !TEX root`, `% !TEX program` / `TS-program`, `% !TEX parameter`,
 `% !TEX encoding` and `% !BIB TS-program` work as in TeXShop, and TeXShop
 `.engine` scripts run unchanged.
+
+## Jobs (tailoring engine)
+
+Works on a job-search folder (default `~/Projects/career-job-search`, or `--root` /
+`$RTEX_JOBS_ROOT`) with `resumes/base.tex` (+ `base.pdf`), a `background/` folder, and
+`jobs/<stage>/<job>/`. Each job folder holds only:
+
+```
+page.txt                                                    the job page's text (Source URL on top)
+attachments/<company>.<position>.<owner>.<MM-DD-YYYY>.pdf   the tailored resume to upload
+.tailor.json                                                (hidden) what changed, checks, timing
+```
+
+The tailored `.tex` is kept next to a copy of the PDF in `resumes/tailored/` (same name).
+
+```sh
+rtex job add https://…/job/123          # saves the page text (Workable, Greenhouse, Lever and
+                                        # Ashby links are read through their job APIs)
+pbpaste | rtex job add --text - --title "Acme Software Engineer"   # pages behind a sign-in
+rtex job tailor <job>                   # tailor, compile, check
+rtex job context <job>                  # files sent to Claude
+rtex job list
+rtex job lines resume.pdf --base base.pdf   # the 116 / 47-character line rule
+```
+
+How `tailor` works: the Claude Code CLI on this Mac, no tools, no MCP servers. The
+system prompt is your tailoring instructions, the output rules, **all of `background/`**
+(PDFs as their text, extracted once and cached), `base.tex`, and how each base bullet
+prints today. It's identical for every job, so Claude's prompt cache serves it from the
+second job on (measured: 109K of 111K input tokens cached, $1.04 → $0.18 per job). The
+message is just the job page. Claude returns only edits (replace / delete / insert
+entries) plus the company and position for the file name; they stream in as written.
+RTeX applies them to a copy of `base.tex`, compiles, checks one page and the line rule,
+and sends only the failing edits back at low effort. New Skills terms that no resume
+or background file mentions are flagged as claims to check. Typical run: about a
+minute.
+
+Instructions are read from `<root>/tailoring.md`, `<root>/auto-apply/tailoring.md`, or
+`~/Library/Application Support/RTeX/tailoring.md`. Optional settings in
+`<root>/rtex-jobs.json`: `owner` (name in file names; default: last name in base.tex),
+`model`, `effort`, `fix_effort` (default `low`), `fix_rounds` (default 2), `analysis`
+(write the role analysis; default false), `hard_gates` (let Claude refuse jobs that
+fail a hard requirement; default false: every job gets a resume).
+
+### Jobs window (⇧⌘J)
+
+A list of jobs grouped by stage (Inbox, Ready to Apply, Hold for Referral, Applied,
+Do Not Apply), read straight from the job folders. For the selected job:
+
+* **Resume**: the tailored PDF next to `base.pdf`.
+* **Changes**: the checks and every edit (original vs. replacement), streaming in while
+  Claude writes; claims to verify in orange.
+* **Page**: the saved page text. **Context**: which files Claude reads (all by default).
+
+Toolbar: **New Job** (URL, or pasted text when the page needs a sign-in; tailors right
+away by default), **Tailor**, **Tailor Inbox** (one job after another in the
+background), **Move To**, **Apply Page** (opens the application in your browser),
+**Show PDF** (the file to upload, in Finder), **Edit Resume** (the tailored `.tex` in
+RTeX; the upload copy is refreshed after you recompile), **Delete** (moves the job's
+folder to the Trash). Jobs → Choose Job Folder… picks the folder. Nothing is ever
+submitted for you.
 
 ## App
 

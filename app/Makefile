@@ -5,7 +5,7 @@
 
 CARGO    ?= $(HOME)/.cargo/bin/cargo
 ROOT     := $(abspath ..)
-RUST_LIB := $(ROOT)/target/release/librtex_core.a
+RUST_LIB := $(ROOT)/target/release/librtex_jobs.a
 BUILD    := build
 APP      := $(BUILD)/RTeX.app
 BIN      := $(APP)/Contents/MacOS/RTeX
@@ -24,7 +24,7 @@ LDFLAGS  := -mmacosx-version-min=13.0 -arch arm64 \
 all: $(APP)
 
 rust: FORCE
-	cd $(ROOT) && $(CARGO) build --release -p rtex-core
+	cd $(ROOT) && $(CARGO) build --release -p rtex-jobs
 
 $(RUST_LIB): rust
 
@@ -51,9 +51,13 @@ $(BUILD)/editor_test: tests/editor_test.mm $(TEST_OBJS) $(RUST_LIB)
 $(BUILD)/document_test: tests/document_test.mm $(TEST_OBJS) $(RUST_LIB)
 	$(CXX) $(CXXFLAGS) -Isrc tests/document_test.mm $(TEST_OBJS) $(RUST_LIB) $(LDFLAGS) -o $@
 
-test: $(BUILD)/editor_test $(BUILD)/document_test
+$(BUILD)/jobs_test: tests/jobs_test.mm $(TEST_OBJS) $(RUST_LIB)
+	$(CXX) $(CXXFLAGS) -Isrc tests/jobs_test.mm $(TEST_OBJS) $(RUST_LIB) $(LDFLAGS) -o $@
+
+test: $(BUILD)/editor_test $(BUILD)/document_test $(BUILD)/jobs_test
 	$(BUILD)/editor_test
 	$(BUILD)/document_test
+	$(BUILD)/jobs_test
 
 run: $(APP)
 	open $(APP)
