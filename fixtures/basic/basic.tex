@@ -1,0 +1,33 @@
+% !TEX TS-program = pdflatex
+% !TEX encoding = UTF-8 Unicode
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{makeidx}
+\usepackage{hyperref}
+\makeindex
+\title{RTeX Basic Fixture}
+\author{Test}
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{Introduction}\label{sec:intro}
+This is the first paragraph. It refers to Section~\ref{sec:math}
+and to equation~\eqref{eq:euler}.\index{Euler}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
+tempor incididunt ut labore et dolore magna aliqua.
+
+\section{Mathematics}\label{sec:math}
+Euler's identity:
+\begin{equation}\label{eq:euler}
+  e^{i\pi} + 1 = 0
+\end{equation}
+% a comment line
+Some inline math $a^2 + b^2 = c^2$ and more text.\index{Pythagoras}
+
+\subsection{More}
+\newpage
+Second page text that goes on for a while so we can sync to it.
+
+\printindex
+\end{document}
