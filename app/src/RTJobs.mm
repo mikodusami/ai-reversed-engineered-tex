@@ -59,6 +59,8 @@ static NSString *EditMarkdown(NSDictionary *e) {
     PDFView *_tailoredPDF;
     PDFView *_basePDF;
     NSTextField *_tailoredLabel;
+    NSTextField *_baseLabel;
+    NSString *_basePDFPath;
     NSTableView *_contextTable;
     NSArray<NSDictionary *> *_contextFiles;
     NSMutableSet<NSString *> *_contextSelected;
@@ -221,7 +223,7 @@ static NSString *EditMarkdown(NSDictionary *e) {
         p.displayMode = kPDFDisplaySinglePageContinuous;
     }
     _tailoredLabel = [NSTextField labelWithString:@"Tailored"];
-    NSTextField *baseLabel = [NSTextField labelWithString:@"base.pdf"];
+    NSTextField *baseLabel = _baseLabel = [NSTextField labelWithString:@"base.pdf"];
     for (NSTextField *l in @[ _tailoredLabel, baseLabel ]) {
         l.font = [NSFont boldSystemFontOfSize:NSFont.smallSystemFontSize];
         l.textColor = NSColor.secondaryLabelColor;
@@ -514,8 +516,13 @@ static NSString *EditMarkdown(NSDictionary *e) {
         [_tabs selectTabViewItemWithIdentifier:@"resume"];
         _pageShownForMissingPDF = NO;
     }
-    if (!_basePDF.document && _root) {
-        _basePDF.document = [[PDFDocument alloc] initWithURL:[NSURL fileURLWithPath:[_root stringByAppendingPathComponent:@"resumes/base.pdf"]]];
+    // Compare with the base the run started from (base.tex or base-data.tex).
+    NSString *base = Str([self tailorInfo:job][@"base"]);
+    NSString *basePDF = [(base.length ? base : @"resumes/base.tex").stringByDeletingPathExtension stringByAppendingPathExtension:@"pdf"];
+    if (_root && (!_basePDF.document || ![basePDF isEqual:_basePDFPath])) {
+        _basePDFPath = basePDF;
+        _basePDF.document = [[PDFDocument alloc] initWithURL:[NSURL fileURLWithPath:[_root stringByAppendingPathComponent:basePDF]]];
+        _baseLabel.stringValue = basePDF.lastPathComponent;
     }
     [self loadContext:job];
 }

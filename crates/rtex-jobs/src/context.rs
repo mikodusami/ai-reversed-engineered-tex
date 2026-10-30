@@ -30,7 +30,8 @@ const MAX_BYTES: u64 = 1_500_000;
 pub fn available(ws: &Workspace) -> Vec<ContextFile> {
     let mut out = Vec::new();
     for (rel, note) in [
-        ("resumes/base.tex", "the resume every tailored version starts from (always sent)"),
+        ("resumes/base.tex", "the base resume (always sent)"),
+        ("resumes/base-data.tex", "the base resume for data roles (always sent)"),
         ("resumes/detailed-resume.tex", "full inventory of verified bullets"),
     ] {
         if let Ok(m) = std::fs::metadata(ws.root.join(rel)) {
@@ -133,14 +134,17 @@ pub fn read(ws: &Workspace, rel: &str) -> Option<String> {
 }
 
 /// The files to send for `job`: its `context.txt`, else the defaults.
-/// `resumes/base.tex` is always included.
+/// The base resumes are always included, first.
 pub fn selected(ws: &Workspace, job: &Job) -> Vec<String> {
-    let mut sel: Vec<String> = match std::fs::read_to_string(job.dir.join("context.txt")) {
+    let rest: Vec<String> = match std::fs::read_to_string(job.dir.join("context.txt")) {
         Ok(t) => t.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')).map(String::from).collect(),
         Err(_) => available(ws).into_iter().filter(|f| f.default).map(|f| f.path).collect(),
     };
-    if !sel.iter().any(|p| p == "resumes/base.tex") {
-        sel.insert(0, "resumes/base.tex".into());
+    let mut sel = ws.bases();
+    for p in rest {
+        if !sel.contains(&p) {
+            sel.push(p);
+        }
     }
     sel.retain(|p| ws.root.join(p).is_file());
     sel

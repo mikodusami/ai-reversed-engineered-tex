@@ -1,6 +1,6 @@
-//! Apply Claude's original→replacement edits to a copy of base.tex.
+//! Apply Claude's original→replacement edits to a copy of the base resume.
 //!
-//! An edit's `original` should be copied verbatim from base.tex. When it is
+//! An edit's `original` should be copied verbatim from the base resume. When it is
 //! not (re-flowed whitespace, a missing indent), it is matched as a sequence
 //! of tokens separated by any whitespace. An edit that matches nowhere, or in
 //! more than one place, is reported instead of guessed.
@@ -83,7 +83,7 @@ fn locate(hay: &str, needle: &str) -> Result<(usize, usize), String> {
     let exact: Vec<usize> = hay.match_indices(needle).map(|(i, _)| i).collect();
     match exact.len() {
         1 => return Ok((exact[0], exact[0] + needle.len())),
-        n if n > 1 => return Err(format!("`original` appears {n} times in base.tex; make it unique")),
+        n if n > 1 => return Err(format!("`original` appears {n} times in the base resume; make it unique")),
         _ => {}
     }
     let tokens: Vec<String> = needle.split_whitespace().map(regex::escape).collect();
@@ -91,8 +91,8 @@ fn locate(hay: &str, needle: &str) -> Result<(usize, usize), String> {
     let found: Vec<(usize, usize)> = re.find_iter(hay).map(|m| (m.start(), m.end())).collect();
     match found.len() {
         1 => Ok(found[0]),
-        0 => Err(format!("`original` was not found in base.tex: {}", preview(needle))),
-        n => Err(format!("`original` matches {n} places in base.tex; make it unique: {}", preview(needle))),
+        0 => Err(format!("`original` was not found in the base resume: {}", preview(needle))),
+        n => Err(format!("`original` matches {n} places in the base resume; make it unique: {}", preview(needle))),
     }
 }
 

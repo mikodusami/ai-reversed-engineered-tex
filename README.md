@@ -56,8 +56,8 @@ rtex complete '{eq'             # command completions, best first
 ## Jobs (tailoring engine)
 
 Works on a job-search folder (default `~/Projects/career-job-search`, or `--root` /
-`$RTEX_JOBS_ROOT`) with `resumes/base.tex` (+ `base.pdf`), a `background/` folder, and
-`jobs/<stage>/<job>/`. Each job folder holds only:
+`$RTEX_JOBS_ROOT`) with `resumes/base.tex` (+ `base.pdf`), optionally `resumes/base-data.tex`
+(+ `base-data.pdf`, the base for data roles), a `background/` folder, and `jobs/<stage>/<job>/`. Each job folder holds only:
 
 ```
 page.txt                                                    the job page's text (Source URL on top)
@@ -84,12 +84,13 @@ prints today. It's identical for every job, so Claude's prompt cache serves it f
 second job on (measured: 109K of 111K input tokens cached, $1.04 → $0.18 per job). The
 message is just the job page. Claude returns only edits (replace / delete / insert
 entries) plus the company and position for the file name; they stream in as written.
-RTeX applies them to a copy of `base.tex`, compiles, checks one page and the line rule,
+With two bases, both are sent and Claude names the one it edits (`base-data.tex` for
+data roles). RTeX applies the edits to a copy of that base, compiles, checks one page and the line rule,
 and sends only the failing edits back at low effort. New Skills terms that no resume
 or background file mentions are flagged as claims to check. Typical run: about a
 minute.
 
-Instructions are read from `<root>/tailoring.md`, `<root>/auto-apply/tailoring.md`, or
+A base PDF older than its `.tex` is recompiled before tailoring. Instructions are read from `<root>/tailoring.md`, `<root>/auto-apply/tailoring.md`, or
 `~/Library/Application Support/RTeX/tailoring.md`. Optional settings in
 `<root>/rtex-jobs.json`: `owner` (name in file names; default: last name in base.tex),
 `model`, `effort`, `fix_effort` (default `low`), `fix_rounds` (default 2), `analysis`

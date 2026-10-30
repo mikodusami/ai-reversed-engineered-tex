@@ -117,6 +117,15 @@ impl Workspace {
     pub fn base_pdf(&self) -> PathBuf {
         self.root.join("resumes/base.pdf")
     }
+    /// The base resumes Claude can start from, relative to the root:
+    /// `resumes/base.tex`, plus `resumes/base-data.tex` (data roles) when present.
+    pub fn bases(&self) -> Vec<String> {
+        ["resumes/base.tex", "resumes/base-data.tex"]
+            .into_iter()
+            .filter(|p| self.root.join(p).is_file())
+            .map(String::from)
+            .collect()
+    }
     pub fn tailored_dir(&self) -> PathBuf {
         self.root.join("resumes/tailored")
     }

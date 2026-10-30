@@ -3,10 +3,11 @@
 //! 1. Ask Claude (your instructions, your files in full, the posting) for the
 //!    edits only — the role analysis is optional and off by default. The
 //!    answer streams, so each edit is shown as soon as it is written.
-//! 2. Apply the edits to a copy of base.tex (replace, delete, insert_after).
+//! 2. Apply the edits to a copy of the base resume Claude chose (base.tex, or
+//!    base-data.tex for data roles): replace, delete, insert_after.
 //! 3. Compile with rtex (build files hidden), check one page and the line rule.
-//! 4. If something fails, send a small follow-up with just base.tex, the
-//!    numbered edits and the problems; only the failing edits come back.
+//! 4. If something fails, send a small follow-up with just the numbered
+//!    edits and the problems; only the failing edits come back.
 //! 5. Put the PDF in the job's `attachments/` as
 //!    `company.position.owner.MM-DD-YYYY.pdf` (the .tex stays in
 //!    `resumes/tailored/` under the same name) and record the run in the
@@ -49,6 +50,8 @@ pub struct Outcome {
     pub position: String,
     pub decision: String,
     pub stop_reason: String,
+    /// The base resume the edits apply to (`resumes/base.tex` or `resumes/base-data.tex`).
+    pub base: String,
     pub analysis: String,
     pub edits: Vec<Edit>,
     pub unapplied: Vec<String>,
@@ -95,7 +98,8 @@ pub fn tailor(ws: &Workspace, job: &Job, topts: &TailorOptions, progress: Progre
         model: (!settings.model.is_empty()).then(|| settings.model.clone()),
         effort: (!settings.effort.is_empty()).then(|| settings.effort.clone()),
     };
-    let base = std::fs::read_to_string(ws.base_tex()).map_err(|e| format!("base.tex: {e}"))?;
+    let bases = ws.bases();
+    refresh_base_pdfs(ws, &bases, progress);
     let posting = ws.posting_text(job).map_err(|e| format!("posting.md: {e}"))?;
     let files = crate::context::selected(ws, job);
     if !ws.tailoring_md().is_file() {
@@ -115,12 +119,16 @@ pub fn tailor(ws: &Workspace, job: &Job, topts: &TailorOptions, progress: Progre
                 status(progress, &format!("Edit {} written…", i + 1));
             }
         };
-        claude::ask(&opts, &system, &first, &prompt::schema(analysis), &mut on)?
+        claude::ask(&opts, &system, &first, &prompt::schema(analysis, &bases), &mut on)?
     };
     let answer = reply.value.clone();
     let model = reply.model.clone();
     calls.push(CallStat { purpose: "tailor".into(), reply });
 
+    let chosen = answer["base"].as_str().unwrap_or("");
+    let base_rel = bases.iter().find(|b| prompt::base_name(b) == chosen).unwrap_or(&bases[0]).clone();
+    let base = std::fs::read_to_string(ws.root.join(&base_rel)).map_err(|e| format!("{base_rel}: {e}"))?;
+    let base_pdf = ws.root.join(base_rel.replace(".tex", ".pdf"));
     let decision = answer["decision"].as_str().unwrap_or("tailor").to_string();
     let mut edits: Vec<Edit> = serde_json::from_value(answer["edits"].clone()).unwrap_or_default();
     let company = answer["company"].as_str().filter(|s| !s.trim().is_empty()).unwrap_or(&job.company).trim().to_string();
@@ -130,6 +138,7 @@ pub fn tailor(ws: &Workspace, job: &Job, topts: &TailorOptions, progress: Progre
         position: position.clone(),
         decision: decision.clone(),
         stop_reason: answer["stop_reason"].as_str().unwrap_or("").into(),
+        base: base_rel.clone(),
         analysis: answer["analysis"].as_str().unwrap_or("").into(),
         edits: edits.clone(),
         unapplied: vec![],
@@ -156,13 +165,13 @@ pub fn tailor(ws: &Workspace, job: &Job, topts: &TailorOptions, progress: Progre
     let name = resume_name(&company, &position, &settings.owner);
     let tex_path = ws.tailored_dir().join(format!("{name}.tex"));
     loop {
-        status(progress, &format!("Applying {} edits and compiling…", edits.len()));
+        status(progress, &format!("Applying {} edits to {} and compiling…", edits.len(), prompt::base_name(&base_rel)));
         let applied = edits::apply(&base, &edits);
         std::fs::create_dir_all(ws.tailored_dir()).map_err(|e| e.to_string())?;
         std::fs::write(&tex_path, &applied.tex).map_err(|e| e.to_string())?;
         let (pdf, pages, build_error) = compile(&tex_path);
         let violations = match &pdf {
-            Some(p) => linecheck::check(p, Some(&ws.base_pdf())).unwrap_or_default(),
+            Some(p) => linecheck::check(p, Some(&base_pdf)).unwrap_or_default(),
             None => vec![],
         };
         let mut problems: Vec<String> = applied
@@ -199,7 +208,7 @@ pub fn tailor(ws: &Workspace, job: &Job, topts: &TailorOptions, progress: Progre
         }
 
         status(progress, &format!("Fixing {} problem(s)…", problems.len()));
-        let msg = prompt::fix_message(&edits, &problems);
+        let msg = prompt::fix_message(&base_rel, &edits, &problems);
         let mut on = |e: Event| {
             if let Event::Edit(_, v) = e {
                 let i = v["index"].as_u64().unwrap_or(0);
@@ -219,6 +228,24 @@ pub fn tailor(ws: &Workspace, job: &Job, topts: &TailorOptions, progress: Progre
                 status(progress, &format!("Fix request failed: {e}. Keeping the last version."));
                 out.note = format!("fixing stopped early: {e}");
             }
+        }
+    }
+}
+
+/// Recompile a base resume whose PDF is missing or older than its .tex: the
+/// line check and the printed line widths sent to Claude come from the PDF.
+fn refresh_base_pdfs(ws: &Workspace, bases: &[String], progress: &mut dyn FnMut(&Value)) {
+    let mtime = |p: &Path| std::fs::metadata(p).and_then(|m| m.modified()).ok();
+    for b in bases {
+        let tex = ws.root.join(b);
+        let pdf = tex.with_extension("pdf");
+        if mtime(&pdf) >= mtime(&tex) {
+            continue;
+        }
+        status(progress, &format!("{} changed; recompiling it…", prompt::base_name(b)));
+        let (_, _, err) = compile(&tex);
+        if let Some(e) = err {
+            status(progress, &format!("{} did not compile: {e}", prompt::base_name(b)));
         }
     }
 }
@@ -337,6 +364,9 @@ pub fn summary_markdown(ws: &Workspace, o: &Outcome) -> String {
         return r;
     }
     r.push_str("\n## Checks\n");
+    if !o.base.is_empty() {
+        r.push_str(&format!("- Base: {}\n", prompt::base_name(&o.base)));
+    }
     if let Some(pdf) = &o.attachment.as_ref().or(o.pdf.as_ref()) {
         r.push_str(&format!("- Resume: {}\n", rel(ws, pdf)));
     }
